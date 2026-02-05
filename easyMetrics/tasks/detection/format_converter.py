@@ -84,8 +84,18 @@ class DetectionFormatConverter:
     def _convert_coco_preds(coco_preds: List[Any]) -> List[Dict[str, Any]]:
         """
         转换 COCO 格式的预测结果。
-        COCO 格式示例: [{"image_id": 0, "category_id": 0, "bbox": [0, 0, 100, 100], "score": 0.9}]
+        
+        支持两种格式：
+        1. COCO 官方格式: [{"image_id": 0, "category_id": 0, "bbox": [0, 0, 100, 100], "score": 0.9}]
+        2. 内部统一格式: [{"boxes": [[x1, y1, x2, y2]], "scores": [0.9], "labels": [0]}]
         """
+        # 检查是否已经是内部统一格式
+        if coco_preds and isinstance(coco_preds[0], dict):
+            first_pred = coco_preds[0]
+            if 'boxes' in first_pred and 'scores' in first_pred and 'labels' in first_pred:
+                # 已经是内部统一格式，直接返回
+                return coco_preds
+        
         # 按 image_id 分组
         grouped_preds = {}
         for pred in coco_preds:
@@ -111,8 +121,18 @@ class DetectionFormatConverter:
     def _convert_coco_targets(coco_targets: List[Any]) -> List[Dict[str, Any]]:
         """
         转换 COCO 格式的真实标签。
-        COCO 格式示例: [{"image_id": 0, "category_id": 0, "bbox": [0, 0, 100, 100], "area": 10000, "iscrowd": 0}]
+        
+        支持两种格式：
+        1. COCO 官方格式: [{"image_id": 0, "category_id": 0, "bbox": [0, 0, 100, 100], "area": 10000, "iscrowd": 0}]
+        2. 内部统一格式: [{"boxes": [[x1, y1, x2, y2]], "labels": [0]}]
         """
+        # 检查是否已经是内部统一格式
+        if coco_targets and isinstance(coco_targets[0], dict):
+            first_target = coco_targets[0]
+            if 'boxes' in first_target and 'labels' in first_target:
+                # 已经是内部统一格式，直接返回
+                return coco_targets
+        
         # 按 image_id 分组
         grouped_targets = {}
         for target in coco_targets:
