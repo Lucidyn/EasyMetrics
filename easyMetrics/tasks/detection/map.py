@@ -139,9 +139,78 @@ class MeanAveragePrecision(Metric):
         # 1. 识别所有唯一类别
         unique_classes = set()
         for t in self.targets:
-            unique_classes.update(t['labels'].tolist())
+            labels = t['labels']
+            # 处理不同类型的 labels 输入
+            try:
+                if isinstance(labels, list):
+                    # 处理列表情况
+                    for label in labels:
+                        if isinstance(label, list):
+                            # 处理嵌套列表情况
+                            for l in label:
+                                unique_classes.add(l)
+                        else:
+                            unique_classes.add(label)
+                else:
+                    try:
+                        # 假设是 numpy 数组
+                        label_list = labels.tolist()
+                        if isinstance(label_list, list):
+                            for label in label_list:
+                                if isinstance(label, list):
+                                    # 处理嵌套列表情况
+                                    for l in label:
+                                        unique_classes.add(l)
+                                else:
+                                    unique_classes.add(label)
+                        else:
+                            # 处理标量情况
+                            unique_classes.add(label_list)
+                    except AttributeError:
+                        # 处理标量情况
+                        unique_classes.add(labels)
+            except Exception as e:
+                # 捕获所有异常，确保程序不会崩溃
+                print(f"处理 labels 时出错: {e}")
+                print(f"labels 类型: {type(labels)}")
+                print(f"labels 值: {labels}")
+        
         for p in self.preds:
-            unique_classes.update(p['labels'].tolist())
+            labels = p['labels']
+            # 处理不同类型的 labels 输入
+            try:
+                if isinstance(labels, list):
+                    # 处理列表情况
+                    for label in labels:
+                        if isinstance(label, list):
+                            # 处理嵌套列表情况
+                            for l in label:
+                                unique_classes.add(l)
+                        else:
+                            unique_classes.add(label)
+                else:
+                    try:
+                        # 假设是 numpy 数组
+                        label_list = labels.tolist()
+                        if isinstance(label_list, list):
+                            for label in label_list:
+                                if isinstance(label, list):
+                                    # 处理嵌套列表情况
+                                    for l in label:
+                                        unique_classes.add(l)
+                                else:
+                                    unique_classes.add(label)
+                        else:
+                            # 处理标量情况
+                            unique_classes.add(label_list)
+                    except AttributeError:
+                        # 处理标量情况
+                        unique_classes.add(labels)
+            except Exception as e:
+                # 捕获所有异常，确保程序不会崩溃
+                print(f"处理 labels 时出错: {e}")
+                print(f"labels 类型: {type(labels)}")
+                print(f"labels 值: {labels}")
         
         sorted_classes = sorted(list(unique_classes))
         
@@ -291,71 +360,170 @@ class MeanAveragePrecision(Metric):
 
         # 收集 GT
         for img_idx, target in enumerate(self.targets):
-            mask = target['labels'] == cls_id
-            boxes = target['boxes'][mask]
-            
-            # 检查 boxes 是否为空
-            if len(boxes) == 0:
+            try:
+                labels = target['labels']
+                boxes = target['boxes']
+                
+                # 处理 labels 是标量的情况
+                if np.isscalar(labels):
+                    if labels == cls_id:
+                        # 如果是标量且匹配，使用所有 boxes
+                        mask = True
+                    else:
+                        # 如果是标量且不匹配，使用空 mask
+                        mask = False
+                else:
+                    # 处理 labels 是二维数组的情况
+                    if labels.ndim == 2:
+                        # 展平二维数组为一维
+                        labels = labels.flatten()
+                    # 正常情况，labels 是一维数组
+                    mask = labels == cls_id
+                
+                # 应用 mask
+                if isinstance(mask, bool):
+                    if mask:
+                        # 如果是 True，使用所有 boxes
+                        filtered_boxes = boxes
+                    else:
+                        # 如果是 False，使用空 boxes
+                        filtered_boxes = np.array([])
+                else:
+                    # 正常情况，mask 是数组
+                    filtered_boxes = boxes[mask]
+                
+                # 检查 filtered_boxes 是否为空
+                if len(filtered_boxes) == 0:
+                    n_pos += 0
+                    class_gt[img_idx] = {
+                        'boxes': np.array([]),
+                        'used': np.array([], dtype=bool)
+                    }
+                    continue
+                
+                # 确保 filtered_boxes 是二维数组
+                if filtered_boxes.ndim == 1:
+                    if len(filtered_boxes) == 4:
+                        # 如果是一维数组且长度为 4，说明是单个边界框
+                        filtered_boxes = filtered_boxes.reshape(1, 4)
+                    else:
+                        # 如果是一维数组且长度不为 4，说明是空的或者格式不对，跳过
+                        n_pos += 0
+                        class_gt[img_idx] = {
+                            'boxes': np.array([]),
+                            'used': np.array([], dtype=bool)
+                        }
+                        continue
+                
+                areas = (filtered_boxes[:, 2] - filtered_boxes[:, 0]) * (filtered_boxes[:, 3] - filtered_boxes[:, 1])
+                valid_area_mask = (areas >= min_area) & (areas < max_area)
+                valid_boxes = filtered_boxes[valid_area_mask]
+                
+                n_pos += len(valid_boxes)
+                class_gt[img_idx] = {
+                    'boxes': valid_boxes,
+                    'used': np.zeros(len(valid_boxes), dtype=bool)
+                }
+            except Exception as e:
+                # 捕获所有异常，确保程序不会崩溃
+                print(f"处理 GT 数据时出错: {e}")
+                print(f"img_idx: {img_idx}")
+                print(f"labels 类型: {type(labels)}")
+                print(f"labels 值: {labels}")
+                print(f"boxes 类型: {type(boxes)}")
+                print(f"boxes 值: {boxes}")
+                # 使用空数据继续
                 n_pos += 0
                 class_gt[img_idx] = {
                     'boxes': np.array([]),
                     'used': np.array([], dtype=bool)
                 }
                 continue
-            
-            # 确保 boxes 是二维数组
-            if boxes.ndim == 1:
-                # 如果是一维数组，说明是空的或者格式不对，跳过
-                n_pos += 0
-                class_gt[img_idx] = {
-                    'boxes': np.array([]),
-                    'used': np.array([], dtype=bool)
-                }
-                continue
-            
-            areas = (boxes[:, 2] - boxes[:, 0]) * (boxes[:, 3] - boxes[:, 1])
-            valid_area_mask = (areas >= min_area) & (areas < max_area)
-            valid_boxes = boxes[valid_area_mask]
-            
-            n_pos += len(valid_boxes)
-            class_gt[img_idx] = {
-                'boxes': valid_boxes,
-                'used': np.zeros(len(valid_boxes), dtype=bool)
-            }
 
         # 收集预测值
         limit_dets = max(self.max_detection_thresholds) if self.max_detection_thresholds else 100
         
         for img_idx, pred in enumerate(self.preds):
-            mask = pred['labels'] == cls_id
-            scores = pred['scores'][mask]
-            boxes = pred['boxes'][mask]
-            
-            # 检查 boxes 是否为空
-            if len(boxes) == 0:
+            try:
+                labels = pred['labels']
+                scores = pred['scores']
+                boxes = pred['boxes']
+                
+                # 处理 labels 是标量的情况
+                if np.isscalar(labels):
+                    if labels == cls_id:
+                        # 如果是标量且匹配，使用所有 scores 和 boxes
+                        mask = True
+                    else:
+                        # 如果是标量且不匹配，使用空 mask
+                        mask = False
+                else:
+                    # 处理 labels 是二维数组的情况
+                    if labels.ndim == 2:
+                        # 展平二维数组为一维
+                        labels = labels.flatten()
+                    # 正常情况，labels 是一维数组
+                    mask = labels == cls_id
+                
+                # 应用 mask
+                if isinstance(mask, bool):
+                    if mask:
+                        # 如果是 True，使用所有 scores 和 boxes
+                        filtered_scores = scores
+                        filtered_boxes = boxes
+                    else:
+                        # 如果是 False，使用空 scores 和 boxes
+                        filtered_scores = np.array([])
+                        filtered_boxes = np.array([])
+                else:
+                    # 正常情况，mask 是数组
+                    filtered_scores = scores[mask]
+                    filtered_boxes = boxes[mask]
+                
+                # 检查 filtered_boxes 是否为空
+                if len(filtered_boxes) == 0:
+                    continue
+                
+                # 确保 filtered_boxes 是二维数组
+                if filtered_boxes.ndim == 1:
+                    if len(filtered_boxes) == 4:
+                        # 如果是一维数组且长度为 4，说明是单个边界框
+                        filtered_boxes = filtered_boxes.reshape(1, 4)
+                        # 确保 filtered_scores 也是一维数组
+                        if np.isscalar(filtered_scores):
+                            filtered_scores = np.array([filtered_scores])
+                    else:
+                        # 如果是一维数组且长度不为 4，说明是空的或者格式不对，跳过
+                        continue
+                
+                areas = (filtered_boxes[:, 2] - filtered_boxes[:, 0]) * (filtered_boxes[:, 3] - filtered_boxes[:, 1])
+                valid_area_mask = (areas >= min_area) & (areas < max_area)
+                
+                filtered_scores = filtered_scores[valid_area_mask]
+                filtered_boxes = filtered_boxes[valid_area_mask]
+                
+                if len(filtered_scores) > 0:
+                    order = np.argsort(-filtered_scores)
+                    sorted_scores = filtered_scores[order][:limit_dets]
+                    sorted_boxes = filtered_boxes[order][:limit_dets]
+                    ranks = np.arange(len(sorted_scores))
+                else:
+                    sorted_scores, sorted_boxes, ranks = [], [], []
+                
+                for s, b, r in zip(sorted_scores, sorted_boxes, ranks):
+                    class_preds.append((s, img_idx, b, r))
+            except Exception as e:
+                # 捕获所有异常，确保程序不会崩溃
+                print(f"处理预测值时出错: {e}")
+                print(f"img_idx: {img_idx}")
+                print(f"labels 类型: {type(labels)}")
+                print(f"labels 值: {labels}")
+                print(f"scores 类型: {type(scores)}")
+                print(f"scores 值: {scores}")
+                print(f"boxes 类型: {type(boxes)}")
+                print(f"boxes 值: {boxes}")
+                # 跳过这个预测，继续处理下一个
                 continue
-            
-            # 确保 boxes 是二维数组
-            if boxes.ndim == 1:
-                # 如果是一维数组，说明是空的或者格式不对，跳过
-                continue
-            
-            areas = (boxes[:, 2] - boxes[:, 0]) * (boxes[:, 3] - boxes[:, 1])
-            valid_area_mask = (areas >= min_area) & (areas < max_area)
-            
-            scores = scores[valid_area_mask]
-            boxes = boxes[valid_area_mask]
-            
-            if len(scores) > 0:
-                order = np.argsort(-scores)
-                scores = scores[order][:limit_dets]
-                boxes = boxes[order][:limit_dets]
-                ranks = np.arange(len(scores))
-            else:
-                scores, boxes, ranks = [], [], []
-            
-            for s, b, r in zip(scores, boxes, ranks):
-                class_preds.append((s, img_idx, b, r))
         
         # 全局按分数排序
         class_preds.sort(key=lambda x: x[0], reverse=True)

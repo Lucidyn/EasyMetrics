@@ -1,14 +1,39 @@
+"""
+EasyMetrics 详细示例文件
+
+此文件包含了 EasyMetrics 库的各种使用示例，包括：
+1. 基本用法 - 计算标准 COCO 指标
+2. 并行计算示例 - 提高大规模数据集的评估速度
+3. 自定义指标筛选示例 - 只计算关心的指标
+4. 寻找最佳置信度阈值示例 - 自动计算满足特定精度要求的阈值
+5. 进度条控制示例 - 控制是否显示评估进度
+6. 多类别评估示例 - 评估包含多个类别的检测结果
+7. 不同格式输入示例 - 测试 VOC 格式输入
+8. YOLO 格式输入示例 - 测试 YOLO 格式输入
+9. 混合格式输入示例 - 测试不同格式的混合使用
+10. 边界情况处理示例 - 测试空数据等边界情况
+11. 多类别多尺度目标示例 - 测试不同尺度目标的检测性能
+12. 批量 YOLO 格式数据示例 - 测试多张图片的 YOLO 格式数据
+
+使用方法：
+    python demo.py
+"""
 import numpy as np
 from easyMetrics.tasks.detection import evaluate_detection
 
 def main():
     print("=== EasyMetrics 详细示例 ===")
+    print("此示例展示了 EasyMetrics 库的各种功能和使用场景")
 
     # 1. 准备数据
-    # 格式: [x1, y1, x2, y2]
-    # 假设有 2 张图片
+    # 格式: [x1, y1, x2, y2] - 左上角和右下角坐标
+    # 假设有 2 张图片，每张图片对应一个字典
     
     # 图片 1: 预测完全正确
+    # 数据结构说明:
+    # - boxes: 边界框坐标，形状为 (N, 4)，N 为目标数量
+    # - scores: 置信度分数，形状为 (N,)
+    # - labels: 类别索引，形状为 (N,)
     preds_1 = {
         'boxes': np.array([[10, 10, 50, 50]], dtype=float),
         'scores': np.array([0.95], dtype=float),
@@ -16,13 +41,16 @@ def main():
     }
     targets_1 = {
         'boxes': np.array([[10, 10, 50, 50]], dtype=float),
-        'labels': np.array([0], dtype=int)
+        'labels': np.array([0], dtype=int)  # 真值不需要 scores
     }
 
     # 图片 2: 有一个误检 (FP) 和一个漏检 (FN)
     # 预测: 
     # - [100, 100, 150, 150] (IoU=0.9, 正确)
     # - [0, 0, 20, 20] (误检)
+    # 真值:
+    # - [100, 100, 150, 150] (被正确检测)
+    # - [200, 200, 250, 250] (未被检测到，漏检)
     preds_2 = {
         'boxes': np.array([
             [100, 100, 150, 150], 
@@ -39,8 +67,13 @@ def main():
         'labels': np.array([0, 0], dtype=int)
     }
 
+    # 组合成完整的数据集
+    # preds: 所有图片的预测结果列表
+    # targets: 所有图片的真实标签列表
     preds = [preds_1, preds_2]
     targets = [targets_1, targets_2]
+    
+    print(f"数据集准备完成: {len(preds)} 张图片, {sum(len(p['boxes']) for p in preds)} 个预测, {sum(len(t['boxes']) for t in targets)} 个真值")
 
     # 2. 基本用法 - 计算标准 COCO 指标
     print("\n[1] 基本用法 - 计算标准 COCO 指标...")
@@ -116,8 +149,157 @@ def main():
         target_format="voc"
     )
     print(f"VOC 格式输入评估 mAP: {results_voc['mAP']:.4f}")
+    
+    # YOLO 格式输入示例
+    print("\n[8] YOLO 格式输入示例...")
+    # YOLO 格式: [class_id, x_center, y_center, width, height, confidence]
+    # 注意: 坐标是归一化的 (0-1)
+    preds_yolo = [[0, 0.5, 0.5, 0.2, 0.2, 0.95]]
+    targets_yolo = [[0, 0.5, 0.5, 0.2, 0.2]]
+    
+    results_yolo = evaluate_detection(
+        [preds_yolo], [targets_yolo],
+        pred_format="yolo",
+        target_format="yolo",
+        image_size=(640, 640)  # YOLO 格式需要的图像尺寸
+    )
+    print(f"YOLO 格式输入评估 mAP: {results_yolo['mAP']:.4f}")
+    
+    # 混合格式输入示例
+    print("\n[9] 混合格式输入示例...")
+    # 预测值使用 YOLO 格式，真值使用 VOC 格式
+    results_mixed = evaluate_detection(
+        [preds_yolo], [targets_voc],
+        pred_format="yolo",
+        target_format="voc",
+        image_size=(640, 640)
+    )
+    print(f"混合格式输入评估 mAP: {results_mixed['mAP']:.4f}")
     print("不同格式输入测试完成")
 
+    # 10. 边界情况处理示例
+    print("\n[10] 边界情况处理示例...")
+    # 测试空数据情况
+    print("测试空数据情况...")
+    empty_preds = []
+    empty_targets = []
+    try:
+        results_empty = evaluate_detection(empty_preds, empty_targets)
+        print("空数据测试完成，结果:", results_empty)
+    except Exception as e:
+        print(f"空数据测试异常: {e}")
+    
+    # 测试只有预测没有真值的情况
+    print("\n测试只有预测没有真值的情况...")
+    only_preds = [preds_1]
+    only_targets = []
+    try:
+        results_only_preds = evaluate_detection(only_preds, only_targets)
+        print("只有预测没有真值测试完成，结果:", results_only_preds)
+    except Exception as e:
+        print(f"只有预测没有真值测试异常: {e}")
+    
+    # 11. 多类别多尺度目标示例
+    print("\n[11] 多类别多尺度目标示例...")
+    # 准备多类别多尺度数据
+    # 类别 0: 大目标
+    # 类别 1: 中目标
+    # 类别 2: 小目标
+    complex_preds = [{
+        'boxes': np.array([
+            [50, 50, 200, 200],   # 大目标
+            [250, 250, 300, 300], # 中目标
+            [350, 350, 360, 360]  # 小目标
+        ], dtype=float),
+        'scores': np.array([0.95, 0.9, 0.85], dtype=float),
+        'labels': np.array([0, 1, 2], dtype=int)
+    }]
+    complex_targets = [{
+        'boxes': np.array([
+            [50, 50, 200, 200],   # 大目标
+            [250, 250, 300, 300], # 中目标
+            [350, 350, 360, 360], # 小目标
+            [400, 400, 410, 410]  # 小目标 (漏检)
+        ], dtype=float),
+        'labels': np.array([0, 1, 2, 2], dtype=int)
+    }]
+    
+    results_complex = evaluate_detection(
+        complex_preds, complex_targets,
+        metrics=['mAP', 'mAP_50', 'mAP_75', 'mAP_s', 'mAP_m', 'mAP_l']
+    )
+    print(f"多类别多尺度评估 mAP: {results_complex['mAP']:.4f}")
+    print(f"mAP_50: {results_complex['mAP_50']:.4f}")
+    print(f"mAP_75: {results_complex['mAP_75']:.4f}")
+    print(f"小目标 mAP_s: {results_complex['mAP_s']:.4f}")
+    print(f"中目标 mAP_m: {results_complex['mAP_m']:.4f}")
+    print(f"大目标 mAP_l: {results_complex['mAP_l']:.4f}")
+    
+    # 12. 批量 YOLO 格式数据示例
+    print("\n[12] 批量 YOLO 格式数据示例...")
+    # 准备批量 YOLO 格式数据
+    # 多张图片的 YOLO 格式预测和真值
+    
+    # 图片 1: 包含两个目标 (行人 + 车辆)
+    # YOLO 格式: [class_id, x_center, y_center, width, height, confidence]
+    preds_yolo_batch_1 = [
+        [0, 0.3, 0.4, 0.2, 0.3, 0.95],  # 行人
+        [1, 0.7, 0.6, 0.3, 0.4, 0.9]     # 车辆
+    ]
+    targets_yolo_batch_1 = [
+        [0, 0.3, 0.4, 0.2, 0.3],  # 行人
+        [1, 0.7, 0.6, 0.3, 0.4]     # 车辆
+    ]
+    
+    # 图片 2: 包含一个目标 (行人)
+    preds_yolo_batch_2 = [
+        [0, 0.5, 0.5, 0.2, 0.2, 0.85]  # 行人
+    ]
+    targets_yolo_batch_2 = [
+        [0, 0.5, 0.5, 0.2, 0.2],  # 行人
+        [1, 0.8, 0.3, 0.2, 0.2]     # 车辆 (漏检)
+    ]
+    
+    # 图片 3: 包含三个目标 (两个行人 + 一个车辆)
+    preds_yolo_batch_3 = [
+        [0, 0.2, 0.3, 0.15, 0.25, 0.92],  # 行人 1
+        [0, 0.8, 0.7, 0.18, 0.22, 0.88],  # 行人 2
+        [1, 0.5, 0.6, 0.25, 0.3, 0.9]      # 车辆
+    ]
+    targets_yolo_batch_3 = [
+        [0, 0.2, 0.3, 0.15, 0.25],  # 行人 1
+        [0, 0.8, 0.7, 0.18, 0.22],  # 行人 2
+        [1, 0.5, 0.6, 0.25, 0.3]      # 车辆
+    ]
+    
+    # 组合成批量数据
+    preds_yolo_batch = [preds_yolo_batch_1, preds_yolo_batch_2, preds_yolo_batch_3]
+    targets_yolo_batch = [targets_yolo_batch_1, targets_yolo_batch_2, targets_yolo_batch_3]
+    
+    print(f"批量 YOLO 数据准备完成: {len(preds_yolo_batch)} 张图片")
+    
+    # 评估批量 YOLO 格式数据
+    results_yolo_batch = evaluate_detection(
+        preds_yolo_batch, targets_yolo_batch,
+        pred_format="yolo",
+        target_format="yolo",
+        image_size=(640, 640),  # YOLO 格式需要的图像尺寸
+        n_jobs=2  # 使用并行计算加速
+    )
+    
+    print(f"批量 YOLO 格式评估 mAP: {results_yolo_batch['mAP']:.4f}")
+    print(f"批量 YOLO 格式评估 mAP_50: {results_yolo_batch['mAP_50']:.4f}")
+    print(f"批量 YOLO 格式评估 mAP_75: {results_yolo_batch['mAP_75']:.4f}")
+    print(f"批量 YOLO 格式评估 AR_100: {results_yolo_batch['AR_100']:.4f}")
+    
+    # 按类别查看结果
+    if 'AP_0' in results_yolo_batch:
+        print(f"行人类别 (0) AP: {results_yolo_batch['AP_0']:.4f}")
+    if 'AP_1' in results_yolo_batch:
+        print(f"车辆类别 (1) AP: {results_yolo_batch['AP_1']:.4f}")
+    
+    print("批量 YOLO 格式数据测试完成")
+    
     print("\n=== 所有示例测试完成！===")
 
 if __name__ == "__main__":
