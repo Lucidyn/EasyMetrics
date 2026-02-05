@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "EasyMetrics"
-version = "0.2.0"
+version = "0.3.0"
 description = "轻量级、零依赖的机器学习指标评估平台"
 readme = "README.md"
 authors = [

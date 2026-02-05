@@ -37,7 +37,7 @@ class MeanAveragePrecision(Metric):
         确保输入数据是 numpy 数组，如果不是则转换为 numpy 数组。
         
         参数:
-            data: 输入数据，可以是列表、numpy 数组或其他可转换类型。
+            data: 输入数据，可以是列表、numpy 数组、标量或其他可转换类型。
             dtype: 目标数据类型，默认为 None（自动推断）。
             
         返回:
@@ -47,11 +47,28 @@ class MeanAveragePrecision(Metric):
         if isinstance(data, np.ndarray):
             if dtype is not None and data.dtype != dtype:
                 return data.astype(dtype)
+            # 特殊处理：如果是单个框的坐标 [x1, y1, x2, y2]，转换为 (1, 4) 形状
+            if data.ndim == 1 and len(data) == 4:
+                return data.reshape(1, 4)
+            # 确保返回至少一维数组
+            if data.ndim == 0:
+                return data.reshape(1)
             return data
         elif data is None:
             return np.array([], dtype=dtype)
         else:
-            return np.array(data, dtype=dtype)
+            # 如果输入是标量，转换为一维数组
+            try:
+                # 尝试迭代，如果是标量会抛出 TypeError
+                iter(data)
+                arr = np.array(data, dtype=dtype)
+                # 特殊处理：如果是单个框的坐标 [x1, y1, x2, y2]，转换为 (1, 4) 形状
+                if arr.ndim == 1 and len(arr) == 4:
+                    return arr.reshape(1, 4)
+                return arr
+            except TypeError:
+                # 输入是标量，转换为一维数组
+                return np.array([data], dtype=dtype)
 
     def update(self, preds: List[Dict[str, Any]], target: List[Dict[str, Any]]):
         """
@@ -62,21 +79,44 @@ class MeanAveragePrecision(Metric):
         # 自动转换 preds 中的数据类型
         converted_preds = []
         for pred in preds:
-            converted_pred = {
-                'boxes': self._ensure_numpy_array(pred['boxes'], dtype=float),
-                'scores': self._ensure_numpy_array(pred['scores'], dtype=float),
-                'labels': self._ensure_numpy_array(pred['labels'], dtype=int)
-            }
-            converted_preds.append(converted_pred)
+            # 确保 boxes 是二维数组
+            boxes = self._ensure_numpy_array(pred['boxes'], dtype=float)
+            if boxes.ndim == 1 and len(boxes) == 4:
+                boxes = boxes.reshape(1, 4)
+            
+            # 确保 scores 是一维数组
+            scores = self._ensure_numpy_array(pred['scores'], dtype=float)
+            if scores.ndim == 0:
+                scores = scores.reshape(1)
+            
+            # 确保 labels 是一维数组
+            labels = self._ensure_numpy_array(pred['labels'], dtype=int)
+            if labels.ndim == 0:
+                labels = labels.reshape(1)
+            
+            converted_preds.append({
+                'boxes': boxes,
+                'scores': scores,
+                'labels': labels
+            })
         
         # 自动转换 targets 中的数据类型
         converted_targets = []
         for tgt in target:
-            converted_target = {
-                'boxes': self._ensure_numpy_array(tgt['boxes'], dtype=float),
-                'labels': self._ensure_numpy_array(tgt['labels'], dtype=int)
-            }
-            converted_targets.append(converted_target)
+            # 确保 boxes 是二维数组
+            boxes = self._ensure_numpy_array(tgt['boxes'], dtype=float)
+            if boxes.ndim == 1 and len(boxes) == 4:
+                boxes = boxes.reshape(1, 4)
+            
+            # 确保 labels 是一维数组
+            labels = self._ensure_numpy_array(tgt['labels'], dtype=int)
+            if labels.ndim == 0:
+                labels = labels.reshape(1)
+            
+            converted_targets.append({
+                'boxes': boxes,
+                'labels': labels
+            })
         
         self.preds.extend(converted_preds)
         self.targets.extend(converted_targets)
@@ -254,6 +294,25 @@ class MeanAveragePrecision(Metric):
             mask = target['labels'] == cls_id
             boxes = target['boxes'][mask]
             
+            # 检查 boxes 是否为空
+            if len(boxes) == 0:
+                n_pos += 0
+                class_gt[img_idx] = {
+                    'boxes': np.array([]),
+                    'used': np.array([], dtype=bool)
+                }
+                continue
+            
+            # 确保 boxes 是二维数组
+            if boxes.ndim == 1:
+                # 如果是一维数组，说明是空的或者格式不对，跳过
+                n_pos += 0
+                class_gt[img_idx] = {
+                    'boxes': np.array([]),
+                    'used': np.array([], dtype=bool)
+                }
+                continue
+            
             areas = (boxes[:, 2] - boxes[:, 0]) * (boxes[:, 3] - boxes[:, 1])
             valid_area_mask = (areas >= min_area) & (areas < max_area)
             valid_boxes = boxes[valid_area_mask]
@@ -271,6 +330,15 @@ class MeanAveragePrecision(Metric):
             mask = pred['labels'] == cls_id
             scores = pred['scores'][mask]
             boxes = pred['boxes'][mask]
+            
+            # 检查 boxes 是否为空
+            if len(boxes) == 0:
+                continue
+            
+            # 确保 boxes 是二维数组
+            if boxes.ndim == 1:
+                # 如果是一维数组，说明是空的或者格式不对，跳过
+                continue
             
             areas = (boxes[:, 2] - boxes[:, 0]) * (boxes[:, 3] - boxes[:, 1])
             valid_area_mask = (areas >= min_area) & (areas < max_area)
