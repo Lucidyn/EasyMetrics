@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "EasyMetrics"
+version = "0.1.0"
+description = "轻量级、零依赖的机器学习指标评估平台"
+readme = "README.md"
+authors = [
+    { name = "EasyMetrics Team", email = "team@easymetrics.example" }
+]
+license = { file = "LICENSE" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules"
+]
+requires-python = ">=3.7"
+dependencies = [
+    "numpy"
+]
+optional-dependencies = {
+    "progress" = ["tqdm"]
+}
+
+[project.urls]
+homepage = "https://github.com/easymetrics/easymetrics"
+documentation = "https://easymetrics.readthedocs.io"
+repository = "https://github.com/easymetrics/easymetrics"
+issues = "https://github.com/easymetrics/easymetrics/issues"
