@@ -20,6 +20,7 @@ EasyMetrics 详细示例文件
 """
 import numpy as np
 from easyMetrics.tasks.detection import evaluate_detection
+from easyMetrics import evaluate
 
 def main():
     print("=== EasyMetrics 详细示例 ===")
@@ -299,6 +300,133 @@ def main():
         print(f"车辆类别 (1) AP: {results_yolo_batch['AP_1']:.4f}")
     
     print("批量 YOLO 格式数据测试完成")
+    
+    # 13. 分类指标示例 - F1 Score
+    print("\n[13] 分类指标示例 - F1 Score...")
+    from easyMetrics import F1Score
+    
+    # 二分类示例
+    print("\n二分类示例:")
+    f1_metric = F1Score(average='macro')
+    
+    # 预测结果和真实标签
+    binary_preds = [0.8, 0.3, 0.6, 0.9, 0.2]
+    binary_targets = [1, 0, 1, 1, 0]
+    
+    f1_metric.update(binary_preds, binary_targets)
+    binary_results = f1_metric.compute()
+    print(f"二分类 F1 Score: {binary_results['f1']:.4f}")
+    print(f"二分类 Precision: {binary_results['precision']:.4f}")
+    print(f"二分类 Recall: {binary_results['recall']:.4f}")
+    
+    # 多分类示例
+    print("\n多分类示例:")
+    f1_metric_multi = F1Score(average='macro', num_classes=3)
+    
+    # 多分类预测和标签
+    multi_preds = [[0.9, 0.1, 0.0], [0.2, 0.7, 0.1], [0.1, 0.2, 0.7], [0.8, 0.1, 0.1]]
+    multi_targets = [0, 1, 2, 0]
+    
+    f1_metric_multi.update(multi_preds, multi_targets)
+    multi_results = f1_metric_multi.compute()
+    print(f"多分类 F1 Score: {multi_results['f1']:.4f}")
+    print(f"多分类 Precision: {multi_results['precision']:.4f}")
+    print(f"多分类 Recall: {multi_results['recall']:.4f}")
+    
+    # 14. 分类指标示例 - AUC
+    print("\n[14] 分类指标示例 - AUC...")
+    from easyMetrics import AUC
+    
+    auc_metric = AUC(method='trapezoidal')
+    
+    # AUC 计算需要概率值
+    auc_preds = [0.8, 0.3, 0.6, 0.9, 0.2, 0.7, 0.4, 0.5]
+    auc_targets = [1, 0, 1, 1, 0, 1, 0, 1]
+    
+    auc_metric.update(auc_preds, auc_targets)
+    auc_results = auc_metric.compute()
+    print(f"AUC 值: {auc_results['auc']:.4f}")
+    
+    # 测试不同的计算方法
+    auc_metric_linear = AUC(method='linear')
+    auc_metric_linear.update(auc_preds, auc_targets)
+    auc_results_linear = auc_metric_linear.compute()
+    print(f"AUC 值 (线性插值): {auc_results_linear['auc']:.4f}")
+    
+    # 15. 多分类示例 - AUC
+    print("\n[15] 多分类示例 - AUC...")
+    # 多分类预测和标签
+    multi_class_preds = [
+        [0.9, 0.05, 0.05],  # 类别 0
+        [0.1, 0.8, 0.1],   # 类别 1
+        [0.2, 0.3, 0.5],   # 类别 2
+        [0.8, 0.1, 0.1]    # 类别 0
+    ]
+    multi_class_targets = [0, 1, 2, 0]
+    
+    # 使用 One-vs-Rest 方法
+    auc_metric_multi = AUC(method='trapezoidal', multi_class='ovr', average='macro')
+    auc_metric_multi.update(multi_class_preds, multi_class_targets)
+    multi_auc_results = auc_metric_multi.compute()
+    print(f"多分类 AUC (OvR): {multi_auc_results['auc']:.4f}")
+    
+    # 使用 One-vs-One 方法
+    auc_metric_multi_ovo = AUC(method='trapezoidal', multi_class='ovo', average='macro')
+    auc_metric_multi_ovo.update(multi_class_preds, multi_class_targets)
+    multi_auc_results_ovo = auc_metric_multi_ovo.compute()
+    print(f"多分类 AUC (OvO): {multi_auc_results_ovo['auc']:.4f}")
+    
+    # 16. 多标签示例
+    print("\n[16] 多标签示例...")
+    # 多标签预测和标签
+    multi_label_preds = [
+        [0.9, 0.8, 0.1],  # 标签 0 和 1
+        [0.2, 0.6, 0.7],   # 标签 1 和 2
+        [0.8, 0.3, 0.2],   # 标签 0
+        [0.1, 0.2, 0.3]    # 无标签
+    ]
+    multi_label_targets = [
+        [1, 1, 0],  # 标签 0 和 1
+        [0, 1, 1],   # 标签 1 和 2
+        [1, 0, 0],   # 标签 0
+        [0, 0, 0]    # 无标签
+    ]
+    
+    # F1 Score 多标签示例
+    print("\n多标签 F1 Score:")
+    f1_metric_multi_label = F1Score(average='macro')
+    f1_metric_multi_label.update(multi_label_preds, multi_label_targets)
+    multi_label_f1_results = f1_metric_multi_label.compute()
+    print(f"多标签 F1 Score: {multi_label_f1_results['f1']:.4f}")
+    print(f"多标签 Precision: {multi_label_f1_results['precision']:.4f}")
+    print(f"多标签 Recall: {multi_label_f1_results['recall']:.4f}")
+    
+    # AUC 多标签示例
+    print("\n多标签 AUC:")
+    auc_metric_multi_label = AUC(method='trapezoidal', average='macro')
+    auc_metric_multi_label.update(multi_label_preds, multi_label_targets)
+    multi_label_auc_results = auc_metric_multi_label.compute()
+    print(f"多标签 AUC: {multi_label_auc_results['auc']:.4f}")
+    
+    # 17. 统一评估接口示例
+    print("\n[17] 统一评估接口示例...")
+    # 分类任务评估
+    print("\n分类任务评估:")
+    unified_results = evaluate(
+        multi_class_preds, 
+        multi_class_targets, 
+        task='classification'
+    )
+    print(f"统一接口分类评估结果: F1={unified_results['f1']:.4f}, AUC={unified_results['auc']:.4f}")
+    
+    # 检测任务评估（使用之前的数据）
+    print("\n检测任务评估:")
+    unified_detection_results = evaluate(
+        preds, 
+        targets, 
+        task='detection'
+    )
+    print(f"统一接口检测评估结果: mAP={unified_detection_results['mAP']:.4f}")
     
     print("\n=== 所有示例测试完成！===")
 
