@@ -3,13 +3,13 @@
 """
 
 from typing import Any, Dict, List, Optional, Tuple, Union
+import numpy as np
 
 # 导入检测任务评估
 from .detection.interface import evaluate_detection
 
 # 导入分类任务评估
-from .classification.f1_score import F1Score
-from .classification.auc import AUC
+from .classification import F1Score, AUC
 
 def evaluate(
     preds: Union[List[Any], Any], 
@@ -49,7 +49,6 @@ def evaluate(
         task = _auto_detect_task(preds, targets)
     
     if task == "detection":
-        # 使用检测任务评估
         return evaluate_detection(
             preds=preds,
             targets=targets,
@@ -63,8 +62,7 @@ def evaluate(
             **kwargs
         )
     elif task == "classification":
-        # 使用分类任务评估
-        return _evaluate_classification(
+        return evaluate_classification(
             preds=preds,
             targets=targets,
             metrics=metrics,
@@ -73,26 +71,7 @@ def evaluate(
     else:
         raise ValueError(f"不支持的任务类型: {task}")
 
-def _auto_detect_task(preds: Any, targets: Any) -> str:
-    """
-    根据输入数据自动判断任务类型。
-    """
-    # 检查是否为检测任务格式
-    if isinstance(preds, list):
-        if len(preds) > 0:
-            first_pred = preds[0]
-            if isinstance(first_pred, dict):
-                # 检测任务格式通常包含 'boxes', 'scores', 'labels'
-                if all(key in first_pred for key in ['boxes', 'scores', 'labels']):
-                    return "detection"
-                # 或者包含 'boxes', 'labels'（真值）
-                elif 'boxes' in first_pred and 'labels' in first_pred:
-                    return "detection"
-    
-    # 默认视为分类任务
-    return "classification"
-
-def _evaluate_classification(
+def evaluate_classification(
     preds: Union[List[Any], Any], 
     targets: Union[List[Any], Any], 
     metrics: Optional[List[str]] = None,
@@ -100,31 +79,59 @@ def _evaluate_classification(
 ) -> Dict[str, float]:
     """
     分类任务评估。
-    """
-    from .classification import F1Score, AUC
     
+    参数:
+        preds: 模型预测结果。
+        targets: 真实标签。
+        metrics: 需要返回的特定指标列表。
+        **kwargs: 额外的参数。
+
+    返回:
+        Dict[str, float]: 包含计算指标的字典。
+    """
     results = {}
     
     # 计算F1 Score
     if metrics is None or any(m in metrics for m in ['f1', 'precision', 'recall']):
-        f1_metric = F1Score(**kwargs)
+        # 移除 F1Score 不支持的参数
+        f1_kwargs = {k: v for k, v in kwargs.items() if k not in ['multi_class', 'average']}
+        f1_metric = F1Score(**f1_kwargs)
         f1_metric.update(preds, targets)
-        f1_results = f1_metric.compute()
-        results.update(f1_results)
+        results.update(f1_metric.compute())
     
     # 计算AUC
     if metrics is None or 'auc' in metrics:
         auc_metric = AUC(**kwargs)
         auc_metric.update(preds, targets)
-        auc_results = auc_metric.compute()
-        results.update(auc_results)
+        results.update(auc_metric.compute())
     
     # 筛选指定指标
     if metrics:
-        filtered_results = {}
-        for k in metrics:
-            if k in results:
-                filtered_results[k] = results[k]
-        return filtered_results
+        return {k: results[k] for k in metrics if k in results}
     
     return results
+
+def _auto_detect_task(preds: Any, targets: Any) -> str:
+    """
+    根据输入数据自动判断任务类型。
+    """
+    # 检查是否为检测任务格式
+    if isinstance(preds, list) and len(preds) > 0:
+        first_pred = preds[0]
+        if isinstance(first_pred, dict):
+            if 'boxes' in first_pred or any(key in first_pred for key in ['bboxes', 'bounding_boxes', 'detections']):
+                return "detection"
+        elif isinstance(first_pred, list) and len(first_pred) >= 5:
+            return "detection"
+    
+    # 检查是否为分类任务格式
+    if isinstance(preds, (list, np.ndarray)):
+        if isinstance(preds, np.ndarray) and preds.ndim == 2:
+            return "classification"
+        elif (isinstance(preds, list) and len(preds) > 0) or (isinstance(preds, np.ndarray) and preds.ndim == 1):
+            first_elem = preds[0] if isinstance(preds, list) else preds[0]
+            if isinstance(first_elem, (int, float, np.number)) or (isinstance(first_elem, (list, np.ndarray)) and len(first_elem) > 1):
+                return "classification"
+    
+    # 默认视为分类任务
+    return "classification"

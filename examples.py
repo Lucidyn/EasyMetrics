@@ -1,32 +1,98 @@
 """
-EasyMetrics 详细示例文件
+EasyMetrics 综合示例文件
 
 此文件包含了 EasyMetrics 库的各种使用示例，包括：
-1. 基本用法 - 计算标准 COCO 指标
-2. 并行计算示例 - 提高大规模数据集的评估速度
-3. 自定义指标筛选示例 - 只计算关心的指标
-4. 寻找最佳置信度阈值示例 - 自动计算满足特定精度要求的阈值
-5. 进度条控制示例 - 控制是否显示评估进度
-6. 多类别评估示例 - 评估包含多个类别的检测结果
-7. 不同格式输入示例 - 测试 VOC 格式输入
-8. YOLO 格式输入示例 - 测试 YOLO 格式输入
-9. 混合格式输入示例 - 测试不同格式的混合使用
-10. 边界情况处理示例 - 测试空数据等边界情况
-11. 多类别多尺度目标示例 - 测试不同尺度目标的检测性能
-12. 批量 YOLO 格式数据示例 - 测试多张图片的 YOLO 格式数据
+1. 快速入门 - 核心接口的基本用法
+2. 详细功能 - 各种高级功能和使用场景
+3. 边界情况处理 - 测试空数据等特殊情况
+4. 格式支持 - 不同数据格式的使用示例
 
 使用方法：
-    python demo.py
+    python examples.py
 """
 import numpy as np
-from easyMetrics.tasks.detection import evaluate_detection
-from easyMetrics import evaluate
+from easyMetrics import evaluate, evaluate_detection, evaluate_classification
 
 def main():
-    print("=== EasyMetrics 详细示例 ===")
+    print("=== EasyMetrics 综合示例 ===")
     print("此示例展示了 EasyMetrics 库的各种功能和使用场景")
-
-    # 1. 准备数据
+    
+    # ==================== 快速入门部分 ====================
+    print("\n\n=== 第一部分：快速入门 ===")
+    print("展示核心接口的基本用法")
+    
+    # 1. 分类任务示例
+    print("\n1. 分类任务示例:")
+    # 预测结果和真实标签
+    class_preds = [
+        [0.9, 0.1],  # 类别 0
+        [0.3, 0.7],  # 类别 1
+        [0.6, 0.4],  # 类别 0
+        [0.8, 0.2]   # 类别 0
+    ]
+    class_targets = [0, 1, 0, 0]
+    
+    # 使用统一的 evaluate 函数
+    result = evaluate(class_preds, class_targets)
+    print(f"自动检测任务类型: {'分类' if 'f1' in result else '检测'}")
+    print(f"F1 Score: {result.get('f1', 0):.4f}")
+    print(f"AUC: {result.get('auc', 0):.4f}")
+    
+    # 2. 目标检测示例
+    print("\n2. 目标检测示例:")
+    # 预测结果和真实标签
+    det_preds = [
+        {
+            'boxes': [[10, 10, 50, 50], [100, 100, 150, 150]],
+            'scores': [0.95, 0.9],
+            'labels': [0, 0]
+        }
+    ]
+    det_targets = [
+        {
+            'boxes': [[10, 10, 50, 50], [100, 100, 150, 150]],
+            'labels': [0, 0]
+        }
+    ]
+    
+    # 使用检测任务专用接口
+    det_result = evaluate_detection(det_preds, det_targets)
+    print(f"mAP: {det_result.get('mAP', 0):.4f}")
+    print(f"mAP_50: {det_result.get('mAP_50', 0):.4f}")
+    
+    # 3. 使用分类任务专用接口
+    print("\n3. 分类任务专用接口:")
+    class_result = evaluate_classification(class_preds, class_targets)
+    print(f"F1 Score: {class_result.get('f1', 0):.4f}")
+    print(f"Precision: {class_result.get('precision', 0):.4f}")
+    print(f"Recall: {class_result.get('recall', 0):.4f}")
+    print(f"AUC: {class_result.get('auc', 0):.4f}")
+    
+    # 4. 多分类示例
+    print("\n4. 多分类示例:")
+    multi_preds = [
+        [0.9, 0.05, 0.05],  # 类别 0
+        [0.1, 0.8, 0.1],   # 类别 1
+        [0.2, 0.3, 0.5],   # 类别 2
+        [0.8, 0.1, 0.1]    # 类别 0
+    ]
+    multi_targets = [0, 1, 2, 0]
+    
+    # 使用分类任务专用接口
+    multi_result = evaluate_classification(multi_preds, multi_targets, multi_class='ovr')
+    print(f"多分类 F1 Score: {multi_result.get('f1', 0):.4f}")
+    print(f"多分类 AUC: {multi_result.get('auc', 0):.4f}")
+    
+    # 5. 一行代码完成评估
+    print("\n5. 一行代码完成评估:")
+    print(f"一行代码评估分类任务: F1={evaluate(class_preds, class_targets).get('f1', 0):.4f}")
+    print(f"一行代码评估检测任务: mAP={evaluate(det_preds, det_targets).get('mAP', 0):.4f}")
+    
+    # ==================== 详细功能部分 ====================
+    print("\n\n=== 第二部分：详细功能 ===")
+    print("展示各种高级功能和使用场景")
+    
+    # 准备数据
     # 格式: [x1, y1, x2, y2] - 左上角和右下角坐标
     # 假设有 2 张图片，每张图片对应一个字典
     
@@ -76,7 +142,7 @@ def main():
     
     print(f"数据集准备完成: {len(preds)} 张图片, {sum(len(p['boxes']) for p in preds)} 个预测, {sum(len(t['boxes']) for t in targets)} 个真值")
 
-    # 2. 基本用法 - 计算标准 COCO 指标
+    # 1. 基本用法 - 计算标准 COCO 指标
     print("\n[1] 基本用法 - 计算标准 COCO 指标...")
     results = evaluate_detection(preds, targets)
     
@@ -85,21 +151,21 @@ def main():
     print(f"mAP_75 (IoU 0.75) : {results['mAP_75']:.4f}")
     print(f"AR_100 (MaxDets=100): {results['AR_100']:.4f}")
 
-    # 3. 并行计算示例
+    # 2. 并行计算示例
     print("\n[2] 并行计算示例...")
     print("使用 4 个核心进行评估:")
     results_parallel = evaluate_detection(preds, targets, n_jobs=4)
     print(f"mAP: {results_parallel['mAP']:.4f}")
     print("并行计算测试完成")
 
-    # 4. 自定义指标筛选示例
+    # 3. 自定义指标筛选示例
     print("\n[3] 自定义指标筛选示例...")
     print("只计算 mAP 和 mAP_50 指标:")
     results_custom = evaluate_detection(preds, targets, metrics=['mAP', 'mAP_50'])
     print(f"自定义指标结果: {results_custom}")
     print("自定义指标筛选测试完成")
 
-    # 5. 寻找最佳阈值
+    # 4. 寻找最佳阈值
     # 场景: 我们希望在 IoU=0.5 的情况下，精度(Precision)至少达到 90%。
     # 问: 我应该设置多高的置信度阈值？
     print("\n[4] 寻找最佳置信度阈值...")
@@ -111,14 +177,14 @@ def main():
     best_thresh = results_criteria.get('BestScore_IoU0.50_P0.90_0')
     print(f"类别 0 在 IoU=0.5 下满足 P>=0.9 的推荐阈值: {best_thresh}")
 
-    # 6. 进度条控制示例
+    # 5. 进度条控制示例
     print("\n[5] 进度条控制示例...")
     print("禁用进度条进行评估:")
     results_no_progress = evaluate_detection(preds, targets, progress=False)
     print(f"mAP: {results_no_progress['mAP']:.4f}")
     print("进度条控制测试完成")
 
-    # 7. 多类别评估示例
+    # 6. 多类别评估示例
     print("\n[6] 多类别评估示例...")
     # 准备多类别数据
     preds_multi = [{
@@ -137,7 +203,7 @@ def main():
     print(f"类别 1 的 AP: {results_multi['AP_1']:.4f}")
     print("多类别评估测试完成")
 
-    # 8. 不同格式输入示例
+    # 7. 不同格式输入示例
     print("\n[7] 不同格式输入示例...")
     # VOC 格式预测
     preds_voc = [[10, 10, 50, 50, 0, 0.95]]  # [x1, y1, x2, y2, class_id, confidence]
@@ -178,9 +244,12 @@ def main():
     print(f"混合格式输入评估 mAP: {results_mixed['mAP']:.4f}")
     print("不同格式输入测试完成")
 
-    # 10. 边界情况处理示例
+    # ==================== 边界情况处理 ====================
+    print("\n\n=== 第三部分：边界情况处理 ===")
+    print("测试空数据等特殊情况")
+    
+    # 1. 测试空数据情况
     print("\n[10] 边界情况处理示例...")
-    # 测试空数据情况
     print("测试空数据情况...")
     empty_preds = []
     empty_targets = []
@@ -190,7 +259,7 @@ def main():
     except Exception as e:
         print(f"空数据测试异常: {e}")
     
-    # 测试只有预测没有真值的情况
+    # 2. 测试只有预测没有真值的情况
     print("\n测试只有预测没有真值的情况...")
     only_preds = [preds_1]
     only_targets = []
@@ -199,162 +268,40 @@ def main():
         print("只有预测没有真值测试完成，结果:", results_only_preds)
     except Exception as e:
         print(f"只有预测没有真值测试异常: {e}")
+
+    # ==================== 分类指标示例 ====================
+    print("\n\n=== 第四部分：分类指标示例 ===")
+    print("展示分类任务的各种指标和使用场景")
     
-    # 11. 多类别多尺度目标示例
-    print("\n[11] 多类别多尺度目标示例...")
-    # 准备多类别多尺度数据
-    # 类别 0: 大目标
-    # 类别 1: 中目标
-    # 类别 2: 小目标
-    complex_preds = [{
-        'boxes': np.array([
-            [50, 50, 200, 200],   # 大目标
-            [250, 250, 300, 300], # 中目标
-            [350, 350, 360, 360]  # 小目标
-        ], dtype=float),
-        'scores': np.array([0.95, 0.9, 0.85], dtype=float),
-        'labels': np.array([0, 1, 2], dtype=int)
-    }]
-    complex_targets = [{
-        'boxes': np.array([
-            [50, 50, 200, 200],   # 大目标
-            [250, 250, 300, 300], # 中目标
-            [350, 350, 360, 360], # 小目标
-            [400, 400, 410, 410]  # 小目标 (漏检)
-        ], dtype=float),
-        'labels': np.array([0, 1, 2, 2], dtype=int)
-    }]
-    
-    results_complex = evaluate_detection(
-        complex_preds, complex_targets,
-        metrics=['mAP', 'mAP_50', 'mAP_75', 'mAP_s', 'mAP_m', 'mAP_l']
-    )
-    print(f"多类别多尺度评估 mAP: {results_complex['mAP']:.4f}")
-    print(f"mAP_50: {results_complex['mAP_50']:.4f}")
-    print(f"mAP_75: {results_complex['mAP_75']:.4f}")
-    print(f"小目标 mAP_s: {results_complex['mAP_s']:.4f}")
-    print(f"中目标 mAP_m: {results_complex['mAP_m']:.4f}")
-    print(f"大目标 mAP_l: {results_complex['mAP_l']:.4f}")
-    
-    # 12. 批量 YOLO 格式数据示例
-    print("\n[12] 批量 YOLO 格式数据示例...")
-    # 准备批量 YOLO 格式数据
-    # 多张图片的 YOLO 格式预测和真值
-    
-    # 图片 1: 包含两个目标 (行人 + 车辆)
-    # YOLO 格式: [class_id, x_center, y_center, width, height, confidence]
-    preds_yolo_batch_1 = [
-        [0, 0.3, 0.4, 0.2, 0.3, 0.95],  # 行人
-        [1, 0.7, 0.6, 0.3, 0.4, 0.9]     # 车辆
-    ]
-    targets_yolo_batch_1 = [
-        [0, 0.3, 0.4, 0.2, 0.3],  # 行人
-        [1, 0.7, 0.6, 0.3, 0.4]     # 车辆
-    ]
-    
-    # 图片 2: 包含一个目标 (行人)
-    preds_yolo_batch_2 = [
-        [0, 0.5, 0.5, 0.2, 0.2, 0.85]  # 行人
-    ]
-    targets_yolo_batch_2 = [
-        [0, 0.5, 0.5, 0.2, 0.2],  # 行人
-        [1, 0.8, 0.3, 0.2, 0.2]     # 车辆 (漏检)
-    ]
-    
-    # 图片 3: 包含三个目标 (两个行人 + 一个车辆)
-    preds_yolo_batch_3 = [
-        [0, 0.2, 0.3, 0.15, 0.25, 0.92],  # 行人 1
-        [0, 0.8, 0.7, 0.18, 0.22, 0.88],  # 行人 2
-        [1, 0.5, 0.6, 0.25, 0.3, 0.9]      # 车辆
-    ]
-    targets_yolo_batch_3 = [
-        [0, 0.2, 0.3, 0.15, 0.25],  # 行人 1
-        [0, 0.8, 0.7, 0.18, 0.22],  # 行人 2
-        [1, 0.5, 0.6, 0.25, 0.3]      # 车辆
-    ]
-    
-    # 组合成批量数据
-    preds_yolo_batch = [preds_yolo_batch_1, preds_yolo_batch_2, preds_yolo_batch_3]
-    targets_yolo_batch = [targets_yolo_batch_1, targets_yolo_batch_2, targets_yolo_batch_3]
-    
-    print(f"批量 YOLO 数据准备完成: {len(preds_yolo_batch)} 张图片")
-    
-    # 评估批量 YOLO 格式数据
-    results_yolo_batch = evaluate_detection(
-        preds_yolo_batch, targets_yolo_batch,
-        pred_format="yolo",
-        target_format="yolo",
-        image_size=(640, 640),  # YOLO 格式需要的图像尺寸
-        n_jobs=2  # 使用并行计算加速
-    )
-    
-    print(f"批量 YOLO 格式评估 mAP: {results_yolo_batch['mAP']:.4f}")
-    print(f"批量 YOLO 格式评估 mAP_50: {results_yolo_batch['mAP_50']:.4f}")
-    print(f"批量 YOLO 格式评估 mAP_75: {results_yolo_batch['mAP_75']:.4f}")
-    print(f"批量 YOLO 格式评估 AR_100: {results_yolo_batch['AR_100']:.4f}")
-    
-    # 按类别查看结果
-    if 'AP_0' in results_yolo_batch:
-        print(f"行人类别 (0) AP: {results_yolo_batch['AP_0']:.4f}")
-    if 'AP_1' in results_yolo_batch:
-        print(f"车辆类别 (1) AP: {results_yolo_batch['AP_1']:.4f}")
-    
-    print("批量 YOLO 格式数据测试完成")
-    
-    # 13. 分类指标示例 - F1 Score
-    print("\n[13] 分类指标示例 - F1 Score...")
-    from easyMetrics import F1Score
-    
-    # 二分类示例
+    # 1. 二分类示例
+    print("\n[11] 分类指标示例 - F1 Score 和 AUC...")
     print("\n二分类示例:")
-    f1_metric = F1Score(average='macro')
-    
     # 预测结果和真实标签
     binary_preds = [0.8, 0.3, 0.6, 0.9, 0.2]
     binary_targets = [1, 0, 1, 1, 0]
     
-    f1_metric.update(binary_preds, binary_targets)
-    binary_results = f1_metric.compute()
+    # 使用 evaluate_classification 函数
+    binary_results = evaluate_classification(binary_preds, binary_targets, average='macro')
     print(f"二分类 F1 Score: {binary_results['f1']:.4f}")
     print(f"二分类 Precision: {binary_results['precision']:.4f}")
     print(f"二分类 Recall: {binary_results['recall']:.4f}")
+    print(f"二分类 AUC: {binary_results['auc']:.4f}")
     
-    # 多分类示例
+    # 2. 多分类示例
     print("\n多分类示例:")
-    f1_metric_multi = F1Score(average='macro', num_classes=3)
-    
     # 多分类预测和标签
     multi_preds = [[0.9, 0.1, 0.0], [0.2, 0.7, 0.1], [0.1, 0.2, 0.7], [0.8, 0.1, 0.1]]
     multi_targets = [0, 1, 2, 0]
     
-    f1_metric_multi.update(multi_preds, multi_targets)
-    multi_results = f1_metric_multi.compute()
+    # 使用 evaluate_classification 函数
+    multi_results = evaluate_classification(multi_preds, multi_targets, average='macro', multi_class='ovr')
     print(f"多分类 F1 Score: {multi_results['f1']:.4f}")
     print(f"多分类 Precision: {multi_results['precision']:.4f}")
     print(f"多分类 Recall: {multi_results['recall']:.4f}")
+    print(f"多分类 AUC: {multi_results['auc']:.4f}")
     
-    # 14. 分类指标示例 - AUC
-    print("\n[14] 分类指标示例 - AUC...")
-    from easyMetrics import AUC
-    
-    auc_metric = AUC(method='trapezoidal')
-    
-    # AUC 计算需要概率值
-    auc_preds = [0.8, 0.3, 0.6, 0.9, 0.2, 0.7, 0.4, 0.5]
-    auc_targets = [1, 0, 1, 1, 0, 1, 0, 1]
-    
-    auc_metric.update(auc_preds, auc_targets)
-    auc_results = auc_metric.compute()
-    print(f"AUC 值: {auc_results['auc']:.4f}")
-    
-    # 测试不同的计算方法
-    auc_metric_linear = AUC(method='linear')
-    auc_metric_linear.update(auc_preds, auc_targets)
-    auc_results_linear = auc_metric_linear.compute()
-    print(f"AUC 值 (线性插值): {auc_results_linear['auc']:.4f}")
-    
-    # 15. 多分类示例 - AUC
-    print("\n[15] 多分类示例 - AUC...")
+    # 3. 多分类不同方法示例
+    print("\n[12] 多分类不同方法示例...")
     # 多分类预测和标签
     multi_class_preds = [
         [0.9, 0.05, 0.05],  # 类别 0
@@ -365,19 +312,11 @@ def main():
     multi_class_targets = [0, 1, 2, 0]
     
     # 使用 One-vs-Rest 方法
-    auc_metric_multi = AUC(method='trapezoidal', multi_class='ovr', average='macro')
-    auc_metric_multi.update(multi_class_preds, multi_class_targets)
-    multi_auc_results = auc_metric_multi.compute()
-    print(f"多分类 AUC (OvR): {multi_auc_results['auc']:.4f}")
+    results_ovr = evaluate_classification(multi_class_preds, multi_class_targets, multi_class='ovr', average='macro')
+    print(f"多分类 AUC (OvR): {results_ovr['auc']:.4f}")
     
-    # 使用 One-vs-One 方法
-    auc_metric_multi_ovo = AUC(method='trapezoidal', multi_class='ovo', average='macro')
-    auc_metric_multi_ovo.update(multi_class_preds, multi_class_targets)
-    multi_auc_results_ovo = auc_metric_multi_ovo.compute()
-    print(f"多分类 AUC (OvO): {multi_auc_results_ovo['auc']:.4f}")
-    
-    # 16. 多标签示例
-    print("\n[16] 多标签示例...")
+    # 4. 多标签示例
+    print("\n[13] 多标签示例...")
     # 多标签预测和标签
     multi_label_preds = [
         [0.9, 0.8, 0.1],  # 标签 0 和 1
@@ -392,24 +331,15 @@ def main():
         [0, 0, 0]    # 无标签
     ]
     
-    # F1 Score 多标签示例
-    print("\n多标签 F1 Score:")
-    f1_metric_multi_label = F1Score(average='macro')
-    f1_metric_multi_label.update(multi_label_preds, multi_label_targets)
-    multi_label_f1_results = f1_metric_multi_label.compute()
-    print(f"多标签 F1 Score: {multi_label_f1_results['f1']:.4f}")
-    print(f"多标签 Precision: {multi_label_f1_results['precision']:.4f}")
-    print(f"多标签 Recall: {multi_label_f1_results['recall']:.4f}")
+    # 使用 evaluate_classification 函数
+    multi_label_results = evaluate_classification(multi_label_preds, multi_label_targets, average='macro')
+    print(f"多标签 F1 Score: {multi_label_results['f1']:.4f}")
+    print(f"多标签 Precision: {multi_label_results['precision']:.4f}")
+    print(f"多标签 Recall: {multi_label_results['recall']:.4f}")
+    print(f"多标签 AUC: {multi_label_results['auc']:.4f}")
     
-    # AUC 多标签示例
-    print("\n多标签 AUC:")
-    auc_metric_multi_label = AUC(method='trapezoidal', average='macro')
-    auc_metric_multi_label.update(multi_label_preds, multi_label_targets)
-    multi_label_auc_results = auc_metric_multi_label.compute()
-    print(f"多标签 AUC: {multi_label_auc_results['auc']:.4f}")
-    
-    # 17. 统一评估接口示例
-    print("\n[17] 统一评估接口示例...")
+    # 5. 统一评估接口示例
+    print("\n[14] 统一评估接口示例...")
     # 分类任务评估
     print("\n分类任务评估:")
     unified_results = evaluate(
@@ -428,7 +358,12 @@ def main():
     )
     print(f"统一接口检测评估结果: mAP={unified_detection_results['mAP']:.4f}")
     
-    print("\n=== 所有示例测试完成！===")
+    print("\n\n=== 所有示例测试完成！===")
+    print("\n总结:")
+    print("- evaluate()：统一评测接口，支持自动检测任务类型")
+    print("- evaluate_detection()：检测任务专用接口")
+    print("- evaluate_classification()：分类任务专用接口")
+    print("\n所有接口都支持一行代码完成评估，非常简洁易用！")
 
 if __name__ == "__main__":
     main()

@@ -101,13 +101,64 @@ pip install git+https://github.com/Lucidyn/EasyMetrics.git
 
 ## 🚀 快速上手
 
+### 核心接口用法
+
+EasyMetrics 提供了三个核心评估接口，满足不同场景的需求：
+
+#### 1. 统一评测接口
+
+`evaluate` 函数是统一的评测入口，支持自动检测任务类型，一行代码完成评估：
+
+```python
+from easyMetrics import evaluate
+
+# 分类任务（自动检测）
+class_result = evaluate(class_preds, class_targets)
+print(f"F1 Score: {class_result['f1']:.4f}")
+print(f"AUC: {class_result['auc']:.4f}")
+
+# 检测任务（自动检测）
+det_result = evaluate(det_preds, det_targets)
+print(f"mAP: {det_result['mAP']:.4f}")
+print(f"mAP_50: {det_result['mAP_50']:.4f}")
+```
+
+#### 2. 检测任务专用接口
+
+`evaluate_detection` 函数专门用于目标检测评估，提供完整的 COCO 指标：
+
+```python
+from easyMetrics import evaluate_detection
+
+# 目标检测评估
+det_result = evaluate_detection(det_preds, det_targets)
+print(f"mAP: {det_result['mAP']:.4f}")
+print(f"mAP_50: {det_result['mAP_50']:.4f}")
+print(f"mAP_75: {det_result['mAP_75']:.4f}")
+```
+
+#### 3. 分类任务专用接口
+
+`evaluate_classification` 函数专门用于分类评估，支持 F1 Score 和 AUC 指标：
+
+```python
+from easyMetrics import evaluate_classification
+
+# 分类评估
+class_result = evaluate_classification(class_preds, class_targets)
+print(f"F1 Score: {class_result['f1']:.4f}")
+print(f"Precision: {class_result['precision']:.4f}")
+print(f"Recall: {class_result['recall']:.4f}")
+print(f"AUC: {class_result['auc']:.4f}")
+```
+
 ### 基本用法
 
 一行代码完成目标检测评估：
 
 ```python
 import numpy as np
-from easyMetrics.tasks.detection import evaluate_detection
+from easyMetrics import evaluate_detection
 
 # 准备数据 - 每张图片一个字典
 preds = [{
@@ -137,7 +188,7 @@ print(f"AR_100 (MaxDets=100): {results['AR_100']:.4f}")
 
 ```python
 import numpy as np
-from easyMetrics.tasks.detection import evaluate_detection
+from easyMetrics import evaluate_detection
 
 # 准备数据 - 假设有 2 张图片
 
@@ -447,6 +498,18 @@ EasyMetrics 支持根据指定的精度 (Precision) 要求，自动寻找最佳�
 EasyMetrics 支持自定义匹配策略，详情请参考源码中的 `matcher.py` 文件。
 
 ## 🎯 版本历史
+
+### v0.4.3 (2026-02-06)
+- **统一接口设计**: 简化为三个核心接口
+  - `evaluate`: 统一评测接口，支持自动检测任务类型
+  - `evaluate_detection`: 检测任务专用接口
+  - `evaluate_classification`: 分类任务专用接口
+- **精简代码结构**: 移除冗余接口，优化核心实现
+- **增强自动检测能力**: 提高任务类型检测的准确性
+  - 支持更多输入格式的自动识别
+  - 为不同任务类型提供更智能的默认参数
+- **更新文档**: 移除简化API用法部分，只保留核心接口示例
+- **保持向后兼容**: 所有原有功能保持不变
 
 ### v0.4.2 (2026-02-06)
 - **扩展AUC指标**: 支持多分类和多标签场景
