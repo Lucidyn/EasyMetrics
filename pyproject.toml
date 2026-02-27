@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "EasyMetrics"
-version = "0.4.3"
+version = "0.4.4"
 description = "轻量级、零依赖的机器学习指标评估平台"
 readme = "README.md"
 authors = [
@@ -25,11 +25,20 @@ dependencies = [
     "numpy"
 ]
 optional-dependencies = {
-    "progress" = ["tqdm"]
+    "progress" = ["tqdm"],
+    "dev" = ["pytest", "pytest-cov"]
 }
 
 [project.urls]
-homepage = "https://github.com/easymetrics/easymetrics"
-documentation = "https://easymetrics.readthedocs.io"
-repository = "https://github.com/easymetrics/easymetrics"
-issues = "https://github.com/easymetrics/easymetrics/issues"
+homepage = "https://github.com/Lucidyn/EasyMetrics"
+documentation = "https://github.com/Lucidyn/EasyMetrics#readme"
+repository = "https://github.com/Lucidyn/EasyMetrics"
+issues = "https://github.com/Lucidyn/EasyMetrics/issues"
+
+[tool.setuptools.packages.find]
+include = ["easyMetrics*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]

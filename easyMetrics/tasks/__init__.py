@@ -9,7 +9,7 @@ import numpy as np
 from .detection.interface import evaluate_detection
 
 # 导入分类任务评估
-from .classification import F1Score, AUC
+from .classification import F1Score, AUC, Accuracy
 
 def evaluate(
     preds: Union[List[Any], Any], 
@@ -90,11 +90,16 @@ def evaluate_classification(
         Dict[str, float]: 包含计算指标的字典。
     """
     results = {}
-    
+
+    # 计算 Accuracy
+    if metrics is None or (metrics and 'accuracy' in metrics):
+        acc_metric = Accuracy()
+        acc_metric.update(preds, targets)
+        results.update(acc_metric.compute())
+
     # 计算F1 Score
     if metrics is None or any(m in metrics for m in ['f1', 'precision', 'recall']):
-        # 移除 F1Score 不支持的参数
-        f1_kwargs = {k: v for k, v in kwargs.items() if k not in ['multi_class', 'average']}
+        f1_kwargs = {k: v for k, v in kwargs.items() if k != 'multi_class'}
         f1_metric = F1Score(**f1_kwargs)
         f1_metric.update(preds, targets)
         results.update(f1_metric.compute())
